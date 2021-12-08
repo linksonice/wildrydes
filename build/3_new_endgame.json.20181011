@@ -1,0 +1,120 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Creates a DynamoDB table, Lambda and Role for the Wild Rydes serverless web application workshop",
+    "Outputs": {
+        "DynamoDBTableArn": {
+            "Value": {
+                "Fn::GetAtt": [ "DynamoDBTable", "Arn" ]
+            }
+        },
+        "LambdaFunctionArn": {
+            "Value": {
+                "Fn::GetAtt": [ "LambdaFunction", "Arn" ]
+            }
+        },
+        "LambdaRoleArn": {
+            "Value": {
+                "Fn::GetAtt": [ "LambdaRole", "Arn" ]
+            }
+        }
+    },
+    "Resources": {
+        "DynamoDBTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "TableName": "Rides",
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "RideId",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "RideId",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1
+                }
+            }
+        },
+        "LambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Description": "Chooses a Unicorn!",
+                "Code": {
+                    "S3Bucket": "iverve",
+                    "S3Key": "public/wildrydes-requestor-js/requestUnicorn.js.zip"
+                },
+                "Handler": "index.handler",
+                "Role": {
+                    "Fn::GetAtt": [ "LambdaRole", "Arn" ]
+                },
+                "Runtime": "nodejs6.10",
+                "Timeout": 60
+            }
+        },
+        "LambdaRole": {
+            "Type": "AWS::IAM::Role",
+            "DependsOn" : "DynamoDBTable",
+            "Properties": {
+                "RoleName": "WildRydesLambda",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [ {
+                        "Action": [ "sts:AssumeRole" ],
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": [ "lambda.amazonaws.com" ]
+                        }
+                    } ]
+                },
+                "Path": "/",
+                "ManagedPolicyArns": [ "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" ],
+                "Policies": [
+                    {
+                        "PolicyName": "DynamoDBAccessWriteAccess",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [ {
+                                "Action": [ "dynamodb:PutItem" ],
+                                "Effect": "Allow",
+                                "Resource": { 
+                                    "Fn::GetAtt": [ "DynamoDBTable", "Arn" ]
+                                }
+                            } ]
+                        }
+                    }
+                ]
+            }
+        },
+        "WildRydes0": {
+            "Type": "AWS::ApiGateway::RestApi",
+            "Properties": {
+                "Name": "WildRydes0",
+                "Description": "WildRides0",
+                "FailOnWarnings": true,
+                "EndpointConfiguration": { "Types": [ "EDGE" ] }
+            }
+        },
+        "ApiAuthorizer": {
+                "Type": "AWS::ApiGateway::Authorizer",
+                "DependsOn": [ "WildRydes0" ],
+                "Properties": {
+                    "AuthorizerResultTtlInSeconds": 300,
+                    "IdentitySource": "method.request.header.Authorization",
+                    "Name": "CognitoDefaultUserPoolAuthorizer",
+                    "RestApiId": {"Ref": "WildRydes0"},
+                    "Type": "COGNITO_USER_POOLS",
+                    "ProviderARNs": [
+                        "arn:aws:cognito-idp:eu-west-2:207531873263:userpool/eu-west-2_eL6g2ClpO"
+                                    ]
+
+                }
+        }
+
+    }
+}

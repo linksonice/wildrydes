@@ -1,0 +1,110 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Creates all the API Gateway elements for the Wild Rydes serverless web application workshop",
+    "Outputs": {
+        "ApiParentId": {
+            "Value": { "Fn::GetAtt": [ "WildRydes1", "RootResourceId" ] }
+        },
+        "ApiInvokeUrl": {
+            "Value": {
+                "Fn::Join": [
+                    "", [
+                            "https://",
+                            { "Ref": "WildRydes1" },
+                            ".",
+                            { "Ref" : "AWS::Region" },
+                            ".eu-west-2",
+                            ".amazonaws",
+                            ".com",
+                            "/prod"
+                         ]
+                ]
+            },
+            "Export": { "Name": "ApiInvokeUrl" }
+        }
+    },
+    "Resources": {
+        "WildRydes1": {
+            "Type": "AWS::ApiGateway::RestApi",
+            "Properties": {
+                "Name": "WildRydes1",
+                "Description": "WildRydes1",
+                "FailOnWarnings": true,
+                "EndpointConfiguration": { "Types": [ "EDGE" ] }
+            }
+        },
+        "ApiAuthorizer": {
+            "Type": "AWS::ApiGateway::Authorizer",
+            "DependsOn": [ "WildRydes1" ],
+            "Properties": {
+                "AuthorizerResultTtlInSeconds": 300,
+                "IdentitySource": "method.request.header.Authorization",
+                "Name": "CognitoDefaultUserPoolAuthorizer",
+                "RestApiId": {"Ref": "WildRydes1"},
+                "Type": "COGNITO_USER_POOLS",
+                "ProviderARNs": [
+                    { "Fn::ImportValue": { "Fn::Sub" : "UserPoolArn" }}
+                                ]
+
+            }
+        },
+        "WildRydesResource": {
+            "Type": "AWS::ApiGateway::Resource",
+            "DependsOn": [ "WildRydes1" ],
+            "Properties": {
+                "RestApiId": { "Ref": "WildRydes1" },
+                "ParentId": { "Fn::GetAtt": [ "WildRydes1", "RootResourceId" ] },
+                "PathPart": "ride"
+            }
+        },
+        "WildRydesMethod": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+                "AuthorizationType": "COGNITO_USER_POOLS",
+                "AuthorizerId": { "Ref": "ApiAuthorizer" },
+                "HttpMethod": "POST",
+                "Integration": {
+                    "Type": "AWS_PROXY",
+                    "IntegrationHttpMethod": "POST",
+                    "Uri": { "Fn::Join": ["",
+                        [ "arn:aws:apigateway:", { "Ref": "AWS::Region" }, ":lambda:path/2015-03-31/functions/", { "Fn::ImportValue": { "Fn::Sub" : "LambdaFunctionArn" }}, "/invocations" ]
+                    ] },
+                    "IntegrationResponses": [
+                        {
+                            "ResponseParameters": {
+                                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                                "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
+                                "method.response.header.Access-Control-Allow-Origin": "'*'"
+                            },
+                            "StatusCode": "200"
+                        }
+                    ]
+                },
+                "RequestParameters": {
+                    "method.request.querystring.name": false
+                },
+                "ResourceId": {"Ref": "WildRydesResource"},
+                "RestApiId": {"Ref": "WildRydes1"},
+                "MethodResponses": [
+                    {
+                        "ResponseParameters": { 
+                            "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                            "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
+                            "method.response.header.Access-Control-Allow-Origin": "'*'"
+                        },
+                        "StatusCode": 200 
+                    }
+                ]
+            }
+        },
+        "ApiDeployment": {
+            "Type": "AWS::ApiGateway::Deployment",
+            "DependsOn": [ "WildRydesMethod" ],
+            "Properties": {
+                "RestApiId": {"Ref": "WildRydes1"},
+                "StageName": "prod"
+            }
+        }
+
+    }
+}

@@ -1,0 +1,92 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Creates a DynamoDB table, Lambda and Role for the Wild Rydes serverless web application workshop",
+    "Outputs": {
+        "DynamoDBTableArn": {
+            "Value": { "Fn::GetAtt": [ "DynamoDBTable", "Arn" ] },
+            "Export": { "Name": "DynamoDBTableArn" }
+        },
+        "LambdaFunctionArn": {
+            "Value": { "Fn::GetAtt": [ "LambdaFunction", "Arn" ] },
+            "Export": { "Name": "LambdaFunctionArn" }
+        },
+        "LambdaRoleArn": {
+            "Value": { "Fn::GetAtt": [ "LambdaRole", "Arn" ] },
+            "Export": { "Name": "LambdaRoleArn" }
+        }
+    },
+    "Resources": {
+        "DynamoDBTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "TableName": "Rides",
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "RideId",
+                        "AttributeType": "S"
+                    }
+                ],
+                "KeySchema": [
+                    {
+                        "AttributeName": "RideId",
+                        "KeyType": "HASH"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1
+                }
+            }
+        },
+        "LambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Description": "Chooses a Unicorn!",
+                "Code": {
+                    "S3Bucket": "iverve",
+                    "S3Key": "public/wildrydes-requestor-js/requestUnicorn.js.zip"
+                },
+                "Handler": "index.handler",
+                "Role": {
+                    "Fn::GetAtt": [ "LambdaRole", "Arn" ]
+                },
+                "Runtime": "nodejs6.10",
+                "Timeout": 60
+            }
+        },
+        "LambdaRole": {
+            "Type": "AWS::IAM::Role",
+            "DependsOn" : "DynamoDBTable",
+            "Properties": {
+                "RoleName": "WildRydesLambda",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [ {
+                        "Action": [ "sts:AssumeRole" ],
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": [ "lambda.amazonaws.com" ]
+                        }
+                    } ]
+                },
+                "Path": "/",
+                "ManagedPolicyArns": [ "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" ],
+                "Policies": [
+                    {
+                        "PolicyName": "DynamoDBAccessWriteAccess",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [ {
+                                "Action": [ "dynamodb:PutItem" ],
+                                "Effect": "Allow",
+                                "Resource": { 
+                                    "Fn::GetAtt": [ "DynamoDBTable", "Arn" ]
+                                }
+                            } ]
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}

@@ -1,0 +1,10 @@
+1 - USEast (N.Virginia) aka us-east-1
+2 - USEast (Ohio) aka us-east-2
+3 - USWest (Oregon) aka us-west-2
+4 - EU (Frankfurt) aka eu-central-1
+5 - EU (Ireland) aka eu-west-1
+6 - EU (London) aka eu-west-2
+7 - AsiaPacific (Tokyo) aka ap-northeast-1
+8 - AsiaPacific (Seoul) aka ap-northeast-2
+9 - AsiaPacific (Sydney) aka ap-southeast-2
+10 - AsiaPacific (Mumbai) aka ap-south-1
